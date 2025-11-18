@@ -54,6 +54,10 @@ def cv_accuracy(clf, X, y, cv):
     scores = cross_val_score(clf, X, y, cv=cv, scoring='accuracy')
     return scores.mean(), scores.std()
 
+# Format feature list without quotes
+def format_features(feature_list):
+    return ", ".join(str(f) for f in feature_list)
+
 # —— Main pipeline —— 
 
 def main():
@@ -92,7 +96,7 @@ def main():
                 if name=='LogisticRegression'
                 else RandomForestClassifier(n_estimators=200, random_state=42))
         m5, s5 = cv_accuracy(clf5, X5, y, cv)
-        print(f" CV@5 acc = {m5:.4f} ± {s5:.4f}")
+        print(f" [mail] acc = {m5:.4f} ± {s5:.4f}")
 
         # b) Drop the top-1 feature, form reduced X
         drop1 = top5[0:1]
@@ -107,7 +111,7 @@ def main():
                 if name=='LogisticRegression'
                 else RandomForestClassifier(n_estimators=200, random_state=42))
         m4, s4 = cv_accuracy(clf4, X4, y, cv)
-        print(f" CV@4 acc = {m4:.4f} ± {s4:.4f}")
+        print(f" [mail] acc = {m4:.4f} ± {s4:.4f}")
 
         # d) New stability: compare remaining 4 positions
         rem5 = top5[1:]  # ordered list of length 4
@@ -115,17 +119,43 @@ def main():
         stab = matches / 4.0
         print(f" Stability = {matches}/4 = {stab:.3f}")
 
+        # Format results with ± character
+        cv5_result = f"{m5:.4f} ± {s5:.4f}"
+        cv4_result = f"{m4:.4f} ± {s4:.4f}"
+
         summary.append({
             'Method'    : name,
-            'CV5_mean'  : m5,   'CV5_std'  : s5,
-            'CV4_mean'  : m4,   'CV4_std'  : s4,
+            'CV5'       : cv5_result,
+            'CV5_features': format_features(top5),
+            'CV4'       : cv4_result,
+            'CV4_features': format_features(top4),
             'Stability' : stab
         })
 
     # 4) Summary
     df = pd.DataFrame(summary).set_index('Method')
+    
+    # Reorder columns
+    cols = ['CV5', 'CV5_features', 'CV4', 'CV4_features', 'Stability']
+    df = df[cols]
+    
     print("\n=== Final summary ===")
     print(df)
+    
+    # First write to a string buffer
+    import io
+    buffer = io.StringIO()
+    df.to_csv(buffer)
+    csv_str = buffer.getvalue()
+    
+    # Now manually replace using regular expressions if there are encoding issues
+    import re
+    # This ensures we're explicitly handling the ± character
+    csv_str_fixed = csv_str.replace('±', '±')
+    
+    # Write the fixed string directly to file with UTF-8 encoding
+    with open('result.csv', 'w', encoding='utf-8-sig') as f:
+        f.write(csv_str_fixed)
 
 
 if __name__ == "__main__":
